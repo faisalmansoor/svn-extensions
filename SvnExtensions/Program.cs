@@ -19,7 +19,7 @@ namespace SvnExtensions
 
             string path = args[0];
 
-            if (Directory.Exists(path))
+            if (!path.StartsWith("http://", StringComparison.InvariantCultureIgnoreCase))
             {
                 UpdateRecursively(path);
                 return;
@@ -28,8 +28,6 @@ namespace SvnExtensions
             var svnVisitor = new SvnRepoVisitor(ProcessSvnPath);
             svnVisitor.Visit(path);
         }
-
-        #region Update
 
         private static void UpdateRecursively(string path)
         {
@@ -40,6 +38,7 @@ namespace SvnExtensions
             {
                 Update(Path.GetDirectoryName(root));
             }
+
             return;
         }
 
@@ -66,24 +65,28 @@ namespace SvnExtensions
             }
         }
 
-        #endregion
-
-        #region Checkout
-
         private static bool ProcessSvnPath(Uri uri, SvnClient client)
         {
-            if (EndWith(uri, "branches") || EndWith(uri, "tags"))
+            try
             {
+                if (EndWith(uri, "branches") || EndWith(uri, "tags"))
+                {
+                    return false;
+                }
+
+                if (EndWith(uri, "trunk"))
+                {
+                    Checkout(client, uri);
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed: {0}", ex.Message);
                 return false;
             }
-
-            if (EndWith(uri, "trunk"))
-            {
-                Checkout(client, uri);
-                return false;
-            }
-
-            return true;
         }
 
         private static void Checkout(SvnClient client, Uri svnuri)
@@ -95,10 +98,8 @@ namespace SvnExtensions
 
         private static bool EndWith(Uri svnuri, string target)
         {
-            string dirName = svnuri.AbsolutePath.TrimEnd(new char[] { '/' });
+            string dirName = svnuri.AbsolutePath.TrimEnd(new[] { '/' });
             return dirName.EndsWith(target, StringComparison.OrdinalIgnoreCase);
         }
-
-        #endregion
     }
 }
